@@ -7,3 +7,7 @@ build:
 .PHONY: run
 run: build
 	$(BINARY)
+
+.PHONY: test
+test: test
+	go test ./... -v
