@@ -9,5 +9,5 @@ run: build
 	$(BINARY)
 
 .PHONY: test
-test: test
+test:
 	go test ./... -v

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/romanchechyotkin/orchestrator/internal/task"
+
 	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 )
@@ -25,6 +27,15 @@ func Test_Run(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, client)
 
-	err = client.Run(context.Background(), "alpine", "docker.io/library/alpine")
-	assert.NoError(t, err)
+	cfg := &task.Config{
+		Name:  "test-container",
+		Image: "alpine",
+		Cmd:   []string{"echo", "hello world"},
+	}
+
+	res := client.Run(context.Background(), cfg)
+	assert.NoError(t, res.Error)
+
+	res = client.Stop(res.ContainerID)
+	assert.NoError(t, res.Error)
 }
