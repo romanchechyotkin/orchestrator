@@ -127,8 +127,9 @@ func (cl *Client) Stop(containerID string) *Result {
 	}
 
 	return &Result{
-		Action: "stop",
-		Result: "success",
+		Action:      "stop",
+		Result:      "success",
+		ContainerID: containerID,
 	}
 }
 

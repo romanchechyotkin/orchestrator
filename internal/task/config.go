@@ -22,3 +22,15 @@ type Config struct {
 	Memory int64
 	Disk   int64
 }
+
+func NewConfig(t *Task) *Config {
+	return &Config{
+		Name:          t.Name,
+		Image:         t.Image,
+		Memory:        t.Memory,
+		Cpu:           t.Cpu,
+		Disk:          t.Disk,
+		ExposedPorts:  t.ExposedPorts,
+		RestartPolicy: t.RestartPolicy,
+	}
+}
