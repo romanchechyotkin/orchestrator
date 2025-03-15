@@ -37,6 +37,8 @@ func (w *Worker) RunTask() *docker.Result {
 		return &docker.Result{}
 	}
 
+	log.Printf("got task %+v from queue\n", queuedTask)
+
 	persistedTask, ok := w.tasksStorage.Get(queuedTask.ID)
 	if !ok {
 		persistedTask = queuedTask

@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -40,11 +39,15 @@ func TestRunTask(t *testing.T) {
 
 	log.Println("Sleepy time")
 	time.Sleep(time.Second * 5)
-	fmt.Printf("stopping task %s\n", testTask.ID)
+	log.Printf("stopping task %+v\n", testTask)
 
-	testTask.State = task.Completed
-	worker.AddTask(testTask)
+	completeTask := &task.Task{
+		ID:          testTask.ID,
+		State:       task.Completed,
+		ContainerID: testTask.ContainerID,
+	}
+	worker.AddTask(completeTask)
 	result = worker.RunTask()
 	require.NoError(t, result.Error)
-	require.Equal(t, result.ContainerID, testTask.ContainerID)
+	require.Equal(t, result.ContainerID, completeTask.ContainerID)
 }
