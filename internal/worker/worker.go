@@ -5,6 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
+	"net/rpc"
+	"os"
 	"time"
 
 	"github.com/romanchechyotkin/orchestrator/internal/task"
@@ -19,18 +23,62 @@ type Worker struct {
 }
 
 func New(name string, dc *docker.Client) *Worker {
-	return &Worker{
+	w := &Worker{
 		name:         name,
 		tasksStorage: NewTasksStorage(),
 		dockerClient: dc,
 	}
+
+	return w
+}
+
+func (w *Worker) serve() {
+	if err := rpc.Register(w); err != nil {
+		log.Printf("failed to register rpc server for worker %s: %v\n", w.name, err)
+		os.Exit(1)
+	}
+	rpc.HandleHTTP()
+
+	l, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		log.Printf("failed to listen socket for worker %s: %v", w.name, err)
+		os.Exit(1)
+	}
+
+	log.Printf("worker %s listening on port 8080\n", w.name)
+
+	if err = http.Serve(l, nil); err != nil {
+		log.Printf("failed to serve http server for worker %s: %v", w.name, err)
+		os.Exit(1)
+	}
+}
+
+func (w *Worker) GetAllTasks(_ *GetAllTasksRequest, reply *GetAllTasksResponse) error {
+	reply.Tasks = w.tasksStorage.GetAll()
+	reply.Err = nil
+
+	return nil
+}
+
+func (w *Worker) GetTask(args *GetTaskRequest, reply *GetTaskResponse) error {
+	task, ok := w.tasksStorage.Get(args.ID)
+	if !ok {
+		reply.Err = errors.New("task not found")
+	}
+
+	reply.Task = task
+	return nil
+}
+
+func (w *Worker) CreateTask(args *CreateTaskRequest, reply *CreateTaskResponse) error {
+	return nil
 }
 
 func (w *Worker) CollectStats() {
 	fmt.Println("will collect stats")
 }
 
-func (w *Worker) RunTask() *docker.Result {
+func (w *Worker) runTask() *docker.Result {
 	queuedTask := w.tasksStorage.Pop()
 	if queuedTask == nil {
 		log.Println("No tasks in the queue")
@@ -49,9 +97,9 @@ func (w *Worker) RunTask() *docker.Result {
 	if task.ValidStateTransition(persistedTask.State, queuedTask.State) {
 		switch queuedTask.State {
 		case task.Scheduled:
-			result = *w.StartTask(queuedTask)
+			result = *w.startTask(queuedTask)
 		case task.Completed:
-			result = *w.StopTask(queuedTask)
+			result = *w.stopTask(queuedTask)
 		default:
 			result.Error = errors.New("We should not get here")
 		}
@@ -63,7 +111,7 @@ func (w *Worker) RunTask() *docker.Result {
 	return &result
 }
 
-func (w *Worker) StartTask(t *task.Task) *docker.Result {
+func (w *Worker) startTask(t *task.Task) *docker.Result {
 	log.Printf("worker %s starting task %s\n", w.name, t.ID)
 
 	cfg := task.NewConfig(t)
@@ -88,7 +136,7 @@ func (w *Worker) StartTask(t *task.Task) *docker.Result {
 	return res
 }
 
-func (w *Worker) StopTask(t *task.Task) *docker.Result {
+func (w *Worker) stopTask(t *task.Task) *docker.Result {
 	log.Printf("worker %s stopping task %s\n", w.name, t.ContainerID)
 
 	res := w.dockerClient.Stop(t.ContainerID)

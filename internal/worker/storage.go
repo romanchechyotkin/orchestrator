@@ -30,6 +30,16 @@ func (ts *TasksStorage) Get(id uuid.UUID) (*task.Task, bool) {
 	return value, ok
 }
 
+func (ts *TasksStorage) GetAll() []*task.Task {
+	tasks := make([]*task.Task, 0, len(ts.tasks))
+
+	for _, task := range ts.tasks {
+		tasks = append(tasks, task)
+	}
+
+	return tasks
+}
+
 func (ts *TasksStorage) Push(t *task.Task) {
 	ts.queue.Enqueue(t)
 }

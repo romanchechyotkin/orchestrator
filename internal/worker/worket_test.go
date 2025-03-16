@@ -2,6 +2,7 @@ package worker
 
 import (
 	"log"
+	"net/rpc"
 	"testing"
 	"time"
 
@@ -31,7 +32,7 @@ func TestRunTask(t *testing.T) {
 	}
 
 	worker.AddTask(testTask)
-	result := worker.RunTask()
+	result := worker.runTask()
 	require.NoError(t, result.Error)
 
 	testTask.ContainerID = result.ContainerID
@@ -47,7 +48,44 @@ func TestRunTask(t *testing.T) {
 		ContainerID: testTask.ContainerID,
 	}
 	worker.AddTask(completeTask)
-	result = worker.RunTask()
+	result = worker.runTask()
 	require.NoError(t, result.Error)
 	require.Equal(t, result.ContainerID, completeTask.ContainerID)
+}
+
+func TestGetAllTasks(t *testing.T) {
+	worker := New("test", nil)
+	go worker.serve()
+
+	require.Eventually(t, func() bool {
+		c, err := rpc.DialHTTP("tcp", "127.0.0.1:8080")
+		if err == nil {
+			_ = c.Close()
+			return true
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond)
+
+	task1 := &task.Task{
+		ID: uuid.New(),
+	}
+
+	task2 := &task.Task{
+		ID: uuid.New(),
+	}
+
+	worker.tasksStorage.Set(task1.ID, task1)
+	worker.tasksStorage.Set(task2.ID, task2)
+	require.Len(t, worker.tasksStorage.tasks, 2)
+
+	c, err := rpc.DialHTTP("tcp", "127.0.0.1:8080")
+	require.NoError(t, err)
+	defer c.Close()
+
+	res := &GetAllTasksResponse{}
+
+	err = c.Call("Worker.GetAllTasks", &GetAllTasksRequest{}, res)
+	require.NoError(t, err)
+	require.NoError(t, res.Err)
+	require.Len(t, res.Tasks, 2)
 }

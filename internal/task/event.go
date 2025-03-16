@@ -9,6 +9,6 @@ import (
 type TaskEvent struct {
 	ID        uuid.UUID
 	State     State
-	Timestemp time.Time
 	Task      *Task
+	Timestemp time.Time
 }
